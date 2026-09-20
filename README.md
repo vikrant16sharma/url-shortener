@@ -1,163 +1,380 @@
-URL Shortener — Spring Boot
+🚀 Project Overview
 
-A backend URL shortening service built with Java 21 and Spring Boot, designed to demonstrate production-oriented backend development concepts including REST APIs, DTOs, validation, layered architecture, JPA, PostgreSQL, Base62 encoding, exception handling, auditing, and automated testing.
+URL Shortener is a backend service that converts long URLs into compact, shareable URLs.
 
-Current status: Core REST API and test suite are complete. PostgreSQL/JPA infrastructure is configured; persistent URL storage is the next development phase.
+For example:
 
-Features
-Implemented
-Create shortened URLs
-Base62 short-code generation
-RESTful API design
-Request DTO validation
-Response DTOs
-URL format validation
-HTTP redirect using 302 Found
-Global exception handling
-Service-layer architecture
-Repository/JPA foundation
-PostgreSQL configuration
-JPA auditing
-Automated controller tests
-Automated service tests
-Spring application context testing
-Maven build and test workflow
-Planned
-Persist URLs completely through PostgreSQL
-URL expiration
-Click analytics
-Authentication and authorization
-Rate limiting
-API documentation with OpenAPI/Swagger
-Docker containerization
-Production deployment
-Performance optimization
-Redis caching
-Architecture
+https://www.example.com/products/category/item?id=12345
+                              ↓
+                    short.ly/x7Kp91a
 
-The application follows a layered backend architecture:
+When a user accesses the shortened URL, the service resolves the short code and redirects them to the original URL.
 
-                    Client
-                      │
-                      ▼
-                REST Controller
-                      │
-                      ▼
-                    DTO
-                      │
-                      ▼
-                 Validation
-                      │
-                      ▼
-                  Service
-                 /       \
-                /         \
-               ▼           ▼
-       Code Generator   Repository
-                            │
-                            ▼
-                       PostgreSQL
-Request flow
+The project is being built incrementally with a focus on clean architecture, maintainability, testability, and production-oriented backend practices.
 
-For URL creation:
+✨ Current Capabilities
+Capability	Status
+REST API	✅
+URL validation	✅
+Base62 code generation	✅
+DTO-based API contracts	✅
+Global exception handling	✅
+Layered architecture	✅
+JPA Entity	✅
+PostgreSQL configuration	✅
+JPA Auditing	✅
+Controller tests	✅
+Service tests	✅
+Application context tests	✅
+Persistent URL storage	🚧
+URL expiration	🔜
+Click analytics	🔜
+Authentication	🔜
+Rate limiting	🔜
+Redis caching	🔜
+Docker	🔜
+CI/CD	🔜
+
+Current milestone: Core API + testing infrastructure is complete. The next milestone is connecting the service's URL storage flow completely to PostgreSQL.
+
+🏗️ Architecture
+
+The application follows a layered architecture designed to keep business logic independent from HTTP and persistence concerns.
+
+                         ┌──────────────┐
+                         │    Client    │
+                         └──────┬───────┘
+                                │
+                                ▼
+                    ┌─────────────────────┐
+                    │   REST Controller   │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │        DTOs         │
+                    │ Request / Response  │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │     Validation      │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │       Service       │
+                    │   Business Logic    │
+                    └───────┬───────┬─────┘
+                            │       │
+                            ▼       ▼
+                 ┌────────────┐  ┌────────────┐
+                 │   Base62   │  │ Repository │
+                 │ Generator  │  │    Layer   │
+                 └────────────┘  └──────┬─────┘
+                                        │
+                                        ▼
+                                ┌──────────────┐
+                                │  PostgreSQL  │
+                                └──────────────┘
+Design principle
+
+Each layer has one primary responsibility:
+
+Controller   → HTTP
+DTO          → API contract
+Validation   → Input correctness
+Service      → Business logic
+Generator    → Short-code generation
+Repository   → Data access
+Entity       → Database representation
+PostgreSQL   → Persistent storage
+🔄 Request Lifecycle
+Create Short URL
+POST /api/urls
+       │
+       ▼
+┌─────────────────┐
+│  UrlController  │
+└────────┬────────┘
+         │
+         ▼
+┌──────────────────────┐
+│ CreateUrlRequest     │
+│ { "url": "..." }     │
+└──────────┬───────────┘
+           │
+           ▼
+     Bean Validation
+           │
+           ▼
+┌──────────────────────┐
+│ UrlShortenerService  │
+└──────────┬───────────┘
+           │
+           ▼
+   Base62 Code Generator
+           │
+           ▼
+┌──────────────────────┐
+│ CreateUrlResponse    │
+│ { "shortUrl": "..." }│
+└──────────────────────┘
+Example
+
+Request
 
 POST /api/urls
-      │
-      ▼
-UrlController
-      │
-      ▼
-CreateUrlRequest
-      │
-      ▼
-Bean Validation
-      │
-      ▼
-UrlShortenerService
-      │
-      ▼
-Base62CodeGenerator
-      │
-      ▼
-UrlRepository
-      │
-      ▼
-PostgreSQL
+Content-Type: application/json
+{
+  "url": "https://google.com"
+}
 
-For redirection:
+Response
 
-GET /{code}
-      │
-      ▼
-UrlController
-      │
-      ▼
-UrlShortenerService
-      │
-      ▼
-UrlRepository
-      │
-      ▼
+201 Created
+{
+  "shortUrl": "short.ly/x7Kp91a"
+}
+↪️ URL Redirection
+GET /x7Kp91a
+       │
+       ▼
+ UrlController
+       │
+       ▼
+ UrlShortenerService
+       │
+       ▼
+   URL lookup
+       │
+       ▼
 Original URL
-      │
-      ▼
+       │
+       ▼
+  302 Found
+       │
+       ▼
+Location: https://google.com
+
+Example:
+
+GET /x7Kp91a
+
+Response:
+
 302 Found
-Location: original URL
-Tech Stack
-Technology	Purpose
-Java 21	Programming language
+Location: https://google.com
+🔢 Base62 Short-Code Generation
+
+The project uses Base62 encoding to generate compact URL-friendly codes.
+
+Character set:
+
+0123456789
+abcdefghijklmnopqrstuvwxyz
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+
+That provides:
+
+62 characters
+
+per position.
+
+Examples
+Decimal	Base62
+0	0
+9	9
+10	a
+35	z
+36	A
+61	Z
+62	10
+63	11
+125	21
+3844	100
+
+Base62 allows the generated identifiers to remain relatively short while using only URL-friendly characters.
+
+🗄️ Data Model
+
+The Url entity currently represents:
+
+┌──────────────────────────────────┐
+│              urls                │
+├──────────────────────────────────┤
+│ id            BIGINT             │
+│ original_url  VARCHAR            │
+│ short_code    VARCHAR UNIQUE     │
+│ created_at    TIMESTAMP          │
+│ updated_at    TIMESTAMP          │
+└──────────────────────────────────┘
+
+The short code has a unique constraint:
+
+uk_urls_short_code
+
+This ensures that two URL records cannot share the same short code.
+
+🕒 JPA Auditing
+
+The project uses Spring Data JPA auditing to automatically maintain timestamps.
+
+@CreatedDate
+private LocalDateTime createdAt;
+
+@LastModifiedDate
+private LocalDateTime updatedAt;
+
+This means timestamp management does not need to be manually implemented inside the service layer.
+
+🧩 API Design
+POST /api/urls
+
+Creates a shortened URL.
+
+Request
+{
+  "url": "https://example.com"
+}
+Response
+{
+  "shortUrl": "short.ly/x7Kp91a"
+}
+Status
+201 Created
+GET /{code}
+
+Redirects to the original URL.
+
+Example
+GET /x7Kp91a
+Response
+302 Found
+Location: https://example.com
+🛡️ Validation & Error Handling
+
+Incoming URLs are validated before reaching the business layer.
+
+Valid:
+
+https://google.com
+http://example.com
+https://github.com/vikrant16sharma
+
+Invalid:
+
+google.com
+example
+
+The application uses a centralized:
+
+GlobalExceptionHandler
+
+to handle:
+
+Validation failures
+Missing short codes
+Application exceptions
+Appropriate HTTP status codes
+
+Example:
+
+GET /doesNotExist
+404 Not Found
+🧪 Testing
+
+Testing is treated as part of the development process rather than something added at the end.
+
+Test layers
+┌─────────────────────────────┐
+│   Application Context Test  │
+├─────────────────────────────┤
+│       Controller Tests      │
+├─────────────────────────────┤
+│         Service Tests       │
+└─────────────────────────────┘
+Current test suite
+
+UrlControllerTest
+
+Create short URL
+Redirect
+Non-existent short code
+Invalid URL
+
+UrlShortenerServiceImplTest
+
+Service behavior
+Mocked dependencies
+Short-code generation flow
+
+UrlshortenerApplicationTests
+
+Spring application context startup
+Current result
+Tests run:     9
+Failures:      0
+Errors:        0
+Skipped:       0
+
+BUILD SUCCESS
+
+Run the test suite:
+
+mvn clean test
+⚙️ Tech Stack
+Technology	Role
+Java 21	Application language
 Spring Boot 4.1.1	Backend framework
 Spring Web MVC	REST API
 Spring Data JPA	Persistence abstraction
 Hibernate	ORM
-PostgreSQL	Relational database
+PostgreSQL	Database
 Maven	Build & dependency management
 JUnit	Testing
 Mockito	Mocking
-Jakarta Bean Validation	Request validation
-Git & GitHub	Version control
-Project Structure
+Jakarta Validation	Request validation
+Git / GitHub	Version control
+📁 Project Structure
 urlshortener/
 │
 ├── .mvn/
 │
 ├── src/
+│   │
 │   ├── main/
+│   │   │
 │   │   ├── java/
-│   │   │   └── com/
-│   │   │       └── vikrant/
-│   │   │           └── urlshortener/
-│   │   │               │
-│   │   │               ├── controller/
-│   │   │               │   └── UrlController.java
-│   │   │               │
-│   │   │               ├── dto/
-│   │   │               │   ├── CreateUrlRequest.java
-│   │   │               │   └── CreateUrlResponse.java
-│   │   │               │
-│   │   │               ├── entity/
-│   │   │               │   └── Url.java
-│   │   │               │
-│   │   │               ├── exception/
-│   │   │               │   ├── GlobalExceptionHandler.java
-│   │   │               │   └── ShortUrlNotFoundException.java
-│   │   │               │
-│   │   │               ├── repository/
-│   │   │               │   └── UrlRepository.java
-│   │   │               │
-│   │   │               ├── service/
-│   │   │               │   └── UrlShortenerService.java
-│   │   │               │
-│   │   │               └── ...
+│   │   │   └── com/vikrant/urlshortener/
+│   │   │       │
+│   │   │       ├── controller/
+│   │   │       │   └── UrlController.java
+│   │   │       │
+│   │   │       ├── dto/
+│   │   │       │   ├── CreateUrlRequest.java
+│   │   │       │   └── CreateUrlResponse.java
+│   │   │       │
+│   │   │       ├── entity/
+│   │   │       │   └── Url.java
+│   │   │       │
+│   │   │       ├── exception/
+│   │   │       │   ├── GlobalExceptionHandler.java
+│   │   │       │   └── ShortUrlNotFoundException.java
+│   │   │       │
+│   │   │       ├── repository/
+│   │   │       │   └── UrlRepository.java
+│   │   │       │
+│   │   │       ├── service/
+│   │   │       │   └── UrlShortenerService.java
+│   │   │       │
+│   │   │       └── ...
 │   │   │
 │   │   └── resources/
 │   │       └── application.properties
 │   │
 │   └── test/
 │       └── java/
-│           └── com/
-│               └── vikrant/
-│                   └── urlshortener/
 │
 ├── .gitignore
 ├── .gitattributes
@@ -165,152 +382,15 @@ urlshortener/
 ├── mvnw.cmd
 ├── pom.xml
 └── README.md
-API
-1. Create Short URL
-Request
-POST /api/urls
-Content-Type: application/json
-Body
-{
-  "url": "https://google.com"
-}
-Response
-201 Created
-{
-  "shortUrl": "short.ly/x7Kp91a"
-}
-2. Redirect to Original URL
-Request
-GET /x7Kp91a
-Response
-302 Found
-Location: https://google.com
+🔐 Configuration
 
-The browser/client can then follow the Location header.
+Database credentials are not hardcoded.
 
-Validation
-
-The URL creation endpoint validates incoming requests.
-
-For example:
-
-{
-  "url": "google.com"
-}
-
-is rejected because the URL must begin with:
-
-http://
-
-or:
-
-https://
-
-Example valid URLs:
-
-https://google.com
-http://example.com
-https://github.com/vikrant16sharma
-Error Handling
-
-The application uses centralized exception handling.
-
-Example:
-
-GET /doesNotExist
-
-returns:
-
-404 Not Found
-
-The application uses:
-
-GlobalExceptionHandler
-
-to convert application exceptions and validation errors into appropriate HTTP responses.
-
-Base62 Encoding
-
-Short codes are generated using Base62 encoding.
-
-The character set is:
-
-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
-
-This gives:
-
-62 possible characters
-
-per position.
-
-Examples:
-
-Decimal    Base62
------------------
-0          0
-9          9
-10         a
-35         z
-36         A
-61         Z
-62         10
-63         11
-125        21
-3844       100
-
-Base62 provides compact URL-friendly identifiers compared with directly exposing sequential decimal IDs.
-
-Database
-
-The project uses:
-
-PostgreSQL
-
-Database:
-
-urlshortener
-
-The Url entity contains:
-
-id
-originalUrl
-shortCode
-createdAt
-updatedAt
-
-The short code has a uniqueness constraint:
-
-uk_urls_short_code
-
-This prevents multiple URLs from using the same short code.
-
-JPA Auditing
-
-The project uses Spring Data JPA auditing for automatically maintaining:
-
-createdAt
-updatedAt
-
-The entity uses:
-
-@CreatedDate
-
-and:
-
-@LastModifiedDate
-
-This removes the need to manually assign timestamps in service code.
-
-Configuration
-
-Database credentials are supplied through environment variables rather than being hardcoded.
+The application uses environment variables:
 
 spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/urlshortener}
 spring.datasource.username=${DB_USERNAME:postgres}
 spring.datasource.password=${DB_PASSWORD}
-
-Set the password before running the application.
-
 PowerShell
 $env:DB_PASSWORD="your_password"
 
@@ -318,189 +398,233 @@ Optional:
 
 $env:DB_URL="jdbc:postgresql://localhost:5432/urlshortener"
 $env:DB_USERNAME="postgres"
-Running the Application
-Prerequisites
 
-Make sure you have:
+This keeps credentials outside the source code.
 
+🏃 Getting Started
+Requirements
 Java 21
 PostgreSQL
 Maven
+Git
 
-Verify Java:
+Verify:
 
 java -version
-
-Verify Maven:
-
 mvn -version
-Clone the repository
+Clone
 git clone https://github.com/vikrant16sharma/url-shortener.git
-
-Navigate into the project:
-
 cd url-shortener
-Configure PostgreSQL
-
-Create the database:
-
+Create Database
 CREATE DATABASE urlshortener;
 
-Set the database password:
+Set your PostgreSQL password:
 
 $env:DB_PASSWORD="your_password"
-Run the application
+Start Application
 
 Using Maven:
 
 mvn spring-boot:run
 
-Or using the Maven wrapper:
+or Maven Wrapper:
 
 .\mvnw spring-boot:run
 
-The application will run on the default Spring Boot port:
+Application:
 
 http://localhost:8080
-Testing
+🗺️ Development Roadmap
 
-The project currently contains tests for:
+The project is intentionally being developed in stages.
 
-Controller
-UrlControllerTest
-
-Tests include:
-
-Successful URL creation
-Redirect response
-Missing short-code handling
-Invalid URL validation
-Service
-UrlShortenerServiceImplTest
-
-Tests the service behavior independently using mocks.
-
-Application Context
-UrlshortenerApplicationTests
-
-Verifies that the Spring application context can start successfully.
-
-Run the complete test suite:
-
-mvn clean test
-
-Current checkpoint:
-
-Tests run: 9
-Failures: 0
-Errors: 0
-Skipped: 0
-
-BUILD SUCCESS
-Development Workflow
-
-The project is being developed incrementally.
-
-Phase 1 — Core URL Shortener
+Phase 1 — Core API
+ REST API
  URL creation
  Base62 generation
- REST endpoints
+ Redirect
  DTOs
  Validation
  Exception handling
  Unit tests
  Controller tests
 Phase 2 — Persistence
- PostgreSQL setup
- JPA configuration
+ PostgreSQL configuration
+ JPA
+ Hibernate
  URL entity
  Repository foundation
  JPA auditing
- Persist URL records
- Retrieve URLs from PostgreSQL
+ Persist URLs through repository
+ Retrieve URLs through repository
  Remove remaining in-memory storage
-Phase 3 — Production Features
+Phase 3 — Advanced Backend
  URL expiration
- Click tracking
- Analytics
+ Click analytics
  Authentication
+ Authorization
  Rate limiting
- Caching
+ Redis caching
 Phase 4 — Productionization
- OpenAPI/Swagger
+ OpenAPI / Swagger
  Docker
- Integration tests
+ Integration testing
  CI/CD
- Production deployment
+ Deployment
  Monitoring
  Performance testing
-Design Goals
+🔮 Planned Architecture
 
-The project is being developed with the following principles:
+As the system evolves, the architecture will move toward a more production-oriented design:
 
-Separation of concerns
-Dependency injection
-Interface-based design
-DTO-based API contracts
-Centralized exception handling
-Input validation
-Database constraints
-Automated testing
-Environment-based configuration
-Production-oriented project structure
-Git Workflow
+                         ┌─────────────┐
+                         │   Client    │
+                         └──────┬──────┘
+                                │
+                                ▼
+                    ┌─────────────────────┐
+                    │   Spring Boot API   │
+                    └──────────┬──────────┘
+                               │
+                  ┌────────────┴────────────┐
+                  │                         │
+                  ▼                         ▼
+             Controller                 Security
+                  │
+                  ▼
+               Service
+             /    │     \
+            /     │      \
+           ▼      ▼       ▼
+      Generator  Cache  Repository
+                        │
+                        ▼
+                   PostgreSQL
+                        │
+               ┌────────┴────────┐
+               │                 │
+               ▼                 ▼
+          URL Storage        Analytics
 
-The project uses incremental commits for major development checkpoints.
+Potential future infrastructure:
+
+                    ┌──────────────┐
+                    │   Clients    │
+                    └──────┬───────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │ Load Balancer│
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+          API Instance  API Instance  API Instance
+              │            │            │
+              └────────────┼────────────┘
+                           │
+                    ┌──────┴──────┐
+                    │    Redis    │
+                    └──────┬──────┘
+                           │
+                    ┌──────┴──────┐
+                    │ PostgreSQL  │
+                    └─────────────┘
+🧠 Engineering Principles
+
+This project focuses on practicing backend engineering concepts that extend beyond simply making an API work.
+
+Separation of Concerns
+
+Each layer has a clearly defined responsibility.
+
+Dependency Injection
+
+Dependencies are provided through constructors rather than created directly inside classes.
+
+Interface-Based Design
+
+Business components are designed around abstractions where appropriate.
+
+DTO-Based APIs
+
+Internal entities are separated from external API contracts.
+
+Validation
+
+Invalid input is rejected at the API boundary.
+
+Centralized Error Handling
+
+Application errors are translated into consistent HTTP responses.
+
+Database Constraints
+
+Important invariants are enforced at the database level.
+
+Automated Testing
+
+Changes are verified through unit, MVC, and application-context tests.
+
+Environment-Based Configuration
+
+Credentials and environment-specific configuration remain outside the source code.
+
+📈 Development Philosophy
+
+The project is intentionally not being built as a single large implementation.
+
+The development approach is:
+
+Fundamentals
+     ↓
+Working API
+     ↓
+Clean Architecture
+     ↓
+Automated Tests
+     ↓
+Persistence
+     ↓
+Performance
+     ↓
+Security
+     ↓
+Scalability
+     ↓
+Production Deployment
+
+Each stage introduces a new engineering problem and builds on the previous one.
+
+📝 Git Development
+
+The project uses incremental feature-based commits.
 
 Example:
 
 git add .
-git commit -m "feat: complete URL shortener API with tests"
+git commit -m "feat: persist urls with postgresql"
 git push
 
-Future feature commits will follow a similar convention:
+Current checkpoint:
+
+feat: complete URL shortener API with tests
+
+Future checkpoints:
 
 feat: persist urls with postgresql
 feat: add url expiration
 feat: add click analytics
 feat: add authentication
 feat: add rate limiting
-Future Architecture
-
-The intended architecture will evolve toward:
-
-                         Client
-                           │
-                           ▼
-                    Spring Boot API
-                           │
-                    ┌──────┴──────┐
-                    │             │
-              Controller       Security
-                    │
-                    ▼
-                  Service
-                 /       \
-                /         \
-               ▼           ▼
-       Code Generator   Repository
-                           │
-                           ▼
-                      PostgreSQL
-                           │
-                    ┌──────┴──────┐
-                    │             │
-                  Redis        Analytics
-                    │
-                    ▼
-                  Cache
-
-The goal is to use this project to explore the transition from a simple backend application to a more production-oriented distributed service.
-
-Author
-
+feat: add redis caching
+feat: dockerize application
+👨‍💻 Author
 Vikrant Sharma
 
 B.Tech — Computer Science & Engineering (Artificial Intelligence)
 
-GitHub: https://github.com/vikrant16sharma
+Building backend systems with Java, Spring Boot, PostgreSQL and AI/ML technologies.
+
+GitHub:
+https://github.com/vikrant16sharma
