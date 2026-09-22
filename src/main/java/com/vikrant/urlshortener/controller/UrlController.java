@@ -2,6 +2,7 @@ package com.vikrant.urlshortener.controller;
 import com.vikrant.urlshortener.Services.UrlShortenerService;
 import com.vikrant.urlshortener.dto.CreateUrlRequest;
 import com.vikrant.urlshortener.dto.CreateUrlResponse;
+import com.vikrant.urlshortener.dto.UrlAnalyticsResponse;
 import com.vikrant.urlshortener.exception.ShortUrlNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +39,15 @@ public class UrlController {
 //            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
 //        }
         return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION,originalUrl).build();
+    }
+
+    @GetMapping("/api/urls/{code}/analytics")
+    public ResponseEntity<UrlAnalyticsResponse  > getAnalytics(
+            @PathVariable String code
+    ) {
+        return ResponseEntity.ok(
+                service.getAnalytics(code)
+        );
     }
 
 }

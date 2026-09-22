@@ -16,10 +16,15 @@ class UrlRepositoryTest {
 
     @Autowired
     private UrlRepository urlRepository;
+    @Autowired
+    private ClickEventRepository clickEventRepository;
+
     @AfterEach
     void cleanup() {
+        clickEventRepository.deleteAll();
         urlRepository.deleteAll();
     }
+
 
     @Test
     void shouldSaveAndFindUrlByShortCode() {
@@ -49,6 +54,7 @@ class UrlRepositoryTest {
     void shouldRejectDuplicateShortCode() {
 
         // Arrange
+        clickEventRepository.deleteAll();
         urlRepository.deleteAll();
 
         Url firstUrl = new Url();

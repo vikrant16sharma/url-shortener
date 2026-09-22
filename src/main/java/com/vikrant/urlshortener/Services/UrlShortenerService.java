@@ -1,11 +1,14 @@
 package com.vikrant.urlshortener.Services;
 
+import com.vikrant.urlshortener.dto.UrlAnalyticsResponse;
+
 import java.time.LocalDateTime;
 
 public interface UrlShortenerService {
     String shortUrl(String originalUrl, LocalDateTime expireAt);
 
     String getOriginalUrl(String code);
+    UrlAnalyticsResponse getAnalytics(String code);
 
 //    private final CodeGenerator codeGenerator;
 //    private final UrlRepository urlRepository;

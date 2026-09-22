@@ -2,8 +2,11 @@ package com.vikrant.urlshortener.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.vikrant.urlshortener.config.AppProperties;
+import com.vikrant.urlshortener.dto.UrlAnalyticsResponse;
+import com.vikrant.urlshortener.entity.ClickEvent;
 import com.vikrant.urlshortener.entity.Url;
 import com.vikrant.urlshortener.exception.ShortUrlNotFoundException;
+import com.vikrant.urlshortener.repository.ClickEventRepository;
 import com.vikrant.urlshortener.repository.UrlRepository;
 import com.vikrant.urlshortener.Services.impl.UrlShortenerServiceImpl;
 import com.vikrant.urlshortener.exception.ShortUrlExpiredException;
@@ -31,6 +34,8 @@ class UrlShortenerServiceImplTest {
 
     @Mock
     private AppProperties appProperties;
+    @Mock
+    private ClickEventRepository clickEventRepository;
     @InjectMocks
     private UrlShortenerServiceImpl service;
 
@@ -111,8 +116,10 @@ class UrlShortenerServiceImplTest {
                 .thenReturn(Optional.of(url));
 
         String result = service.getOriginalUrl(code);
-
+        //assert we implement verifications
         assertEquals(originalUrl, result);
+        verify(clickEventRepository)
+                .save(any(ClickEvent.class));
     }
     @Test
     void shouldThrowExceptionWhenShortCodeDoesNotExist() {
@@ -145,6 +152,10 @@ class UrlShortenerServiceImplTest {
                 service.getOriginalUrl("abc123")
         )
                 .isInstanceOf(ShortUrlExpiredException.class);
+
+        verify(clickEventRepository,never())
+                .save(any(ClickEvent.class));
+
     }
     @Test
     void shouldRejectPastExpirationDate() {
@@ -160,5 +171,132 @@ class UrlShortenerServiceImplTest {
         )
                 .isInstanceOf(InvalidExpirationException.class)
                 .hasMessage("Expiration time must be in the future");
+    }
+    @Test
+    void shouldReturnUrlAnalytics() {
+
+        Long urlId = 1L;
+        String code = "abc123";
+        String originalUrl = "https://google.com";
+
+        LocalDateTime firstClick =
+                LocalDateTime.of(2026, 9, 22, 10, 0);
+
+        LocalDateTime lastClick =
+                LocalDateTime.of(2026, 9, 22, 11, 0);
+
+        Url url = new Url();
+        url.setId(urlId);
+        url.setOriginalUrl(originalUrl);
+        url.setShortCode(code);
+
+        ClickEvent firstEvent = new ClickEvent();
+        firstEvent.setUrl(url);
+        firstEvent.setClickedAt(firstClick);
+
+        ClickEvent lastEvent = new ClickEvent();
+        lastEvent.setUrl(url);
+        lastEvent.setClickedAt(lastClick);
+
+        when(urlRepository.findByShortCode(code))
+                .thenReturn(Optional.of(url));
+
+        when(clickEventRepository.countByUrlId(urlId))
+                .thenReturn(2L);
+
+        when(clickEventRepository
+                .findFirstByUrlIdOrderByClickedAtAsc(urlId))
+                .thenReturn(Optional.of(firstEvent));
+
+        when(clickEventRepository
+                .findFirstByUrlIdOrderByClickedAtDesc(urlId))
+                .thenReturn(Optional.of(lastEvent));
+
+        // Act
+        UrlAnalyticsResponse result =
+                service.getAnalytics(code);
+
+        // Assert
+        assertEquals(code, result.getShortCode());
+
+        assertEquals(
+                originalUrl,
+                result.getOriginalUrl()
+        );
+
+        assertEquals(
+                2L,
+                result.getTotalClicks()
+        );
+
+        assertEquals(
+                firstClick,
+                result.getFirstClickedAt()
+        );
+
+        assertEquals(
+                lastClick,
+                result.getLastClickedAt()
+        );
+        // Because Url.id has no public setter,
+        // Mockito can return the URL but the ID must be available
+        // for countByUrlId().
+    }
+    @Test
+    void shouldReturnAnalyticsWithZeroClicks() {
+
+        Long urlId = 1L;
+        String code = "abc123";
+        String originalUrl = "https://google.com";
+
+        Url url = new Url();
+
+        url.setId(urlId);
+        url.setOriginalUrl(originalUrl);
+        url.setShortCode(code);
+
+        when(urlRepository.findByShortCode(code))
+                .thenReturn(Optional.of(url));
+
+        when(clickEventRepository.countByUrlId(urlId))
+                .thenReturn(0L);
+
+        when(clickEventRepository
+                .findFirstByUrlIdOrderByClickedAtAsc(urlId))
+                .thenReturn(Optional.empty());
+
+        when(clickEventRepository
+                .findFirstByUrlIdOrderByClickedAtDesc(urlId))
+                .thenReturn(Optional.empty());
+
+        // Act
+        UrlAnalyticsResponse result =
+                service.getAnalytics(code);
+
+        // Assert
+        assertEquals(code, result.getShortCode());
+        assertEquals(originalUrl, result.getOriginalUrl());
+        assertEquals(0L, result.getTotalClicks());
+        assertNull(result.getFirstClickedAt());
+        assertNull(result.getLastClickedAt());
+    }
+
+
+    // is test is for not found behaviour of the url in cliked one
+
+    @Test
+    void shouldThrowExceptionWhenAnalyticsCodeDoesNotExist() {
+
+        String code = "doesNotExist";
+
+        when(urlRepository.findByShortCode(code))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ShortUrlNotFoundException.class,
+                () -> service.getAnalytics(code)
+        );
+
+        verifyNoInteractions(clickEventRepository);
     }
 }
