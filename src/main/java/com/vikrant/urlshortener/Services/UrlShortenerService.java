@@ -1,7 +1,9 @@
 package com.vikrant.urlshortener.Services;
 
+import java.time.LocalDateTime;
+
 public interface UrlShortenerService {
-    String shortUrl(String originalUrl);
+    String shortUrl(String originalUrl, LocalDateTime expireAt);
 
     String getOriginalUrl(String code);
 

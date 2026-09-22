@@ -31,6 +31,9 @@ public class Url {
     @Column(nullable = false)
     private String shortCode;
 
+    @Column
+    private LocalDateTime expiresAt;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,5 +68,13 @@ public class Url {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public LocalDateTime getExpireAt(){
+        return expiresAt;
+    }
+
+    public void setExpiresAt(LocalDateTime expiresAt){
+        this.expiresAt = expiresAt;
     }
 }

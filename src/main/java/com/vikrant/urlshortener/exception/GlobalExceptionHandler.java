@@ -24,4 +24,18 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
+
+    @ExceptionHandler(ShortUrlExpiredException.class)
+    public ResponseEntity<String> handleExpiredUrl(ShortUrlExpiredException exception){
+        return ResponseEntity.status(HttpStatus.GONE).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidExpirationException.class)
+    public ResponseEntity<String> handleInvalidExpiration(
+            InvalidExpirationException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
 }

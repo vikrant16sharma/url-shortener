@@ -1,16 +1,20 @@
 package com.vikrant.urlshortener.service;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.vikrant.urlshortener.config.AppProperties;
 import com.vikrant.urlshortener.entity.Url;
 import com.vikrant.urlshortener.exception.ShortUrlNotFoundException;
 import com.vikrant.urlshortener.repository.UrlRepository;
 import com.vikrant.urlshortener.Services.impl.UrlShortenerServiceImpl;
+import com.vikrant.urlshortener.exception.ShortUrlExpiredException;
+import com.vikrant.urlshortener.exception.InvalidExpirationException;
 import com.vikrant.urlshortener.Services.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,14 +29,21 @@ class UrlShortenerServiceImplTest {
     @Mock
     private CodeGenerator codeGenerator;
 
+    @Mock
+    private AppProperties appProperties;
     @InjectMocks
     private UrlShortenerServiceImpl service;
 
     @Test
     void shouldCreateShortUrlForNewUrl() {
-
+        // Arrange
         String originalUrl = "https://google.com";
         String generatedCode = "x7Kp91a";
+        String baseUrl = "http://localhost:8080/";
+
+        when(appProperties.getBaseUrl())
+                .thenReturn(baseUrl);
+
 
         when(urlRepository.findByOriginalUrl(originalUrl))
                 .thenReturn(Optional.empty());
@@ -43,10 +54,13 @@ class UrlShortenerServiceImplTest {
         when(urlRepository.findByShortCode(generatedCode))
                 .thenReturn(Optional.empty());
 
-        String result = service.shortUrl(originalUrl);
 
+        //Act
+        String result = service.shortUrl(originalUrl,null);
+
+        //Assert
         assertEquals(
-                "short.ly/" + generatedCode,
+                baseUrl + generatedCode,
                 result
         );
 
@@ -54,21 +68,26 @@ class UrlShortenerServiceImplTest {
     }
     @Test
     void shouldReturnExistingShortUrlForDuplicateUrl() {
-
+        //Arrange
         String originalUrl = "https://google.com";
-
+        String baseUrl = "http://localhost:8080/";
         Url existingUrl = new Url();
 
         existingUrl.setOriginalUrl(originalUrl);
         existingUrl.setShortCode("abc1234");
 
+        when(appProperties.getBaseUrl())
+                .thenReturn(baseUrl);
+
         when(urlRepository.findByOriginalUrl(originalUrl))
                 .thenReturn(Optional.of(existingUrl));
 
-        String result = service.shortUrl(originalUrl);
+        //Act
+        String result = service.shortUrl(originalUrl,null);
 
+        //Assert
         assertEquals(
-                "short.ly/abc1234",
+                baseUrl+"abc1234",
                 result
         );
 
@@ -108,5 +127,38 @@ class UrlShortenerServiceImplTest {
                 () -> service.getOriginalUrl(code)
         );
     }
+    @Test
+    void shouldRejectExpiredUrl() {
 
+        Url url = new Url();
+
+        url.setOriginalUrl("https://example.com");
+        url.setShortCode("abc123");
+        url.setExpiresAt(
+                LocalDateTime.now().minusMinutes(1)
+        );
+
+        when(urlRepository.findByShortCode("abc123"))
+                .thenReturn(Optional.of(url));
+
+        assertThatThrownBy(() ->
+                service.getOriginalUrl("abc123")
+        )
+                .isInstanceOf(ShortUrlExpiredException.class);
+    }
+    @Test
+    void shouldRejectPastExpirationDate() {
+
+        LocalDateTime past =
+                LocalDateTime.now().minusMinutes(10);
+
+        assertThatThrownBy(() ->
+                service.shortUrl(
+                        "https://example.com",
+                        past
+                )
+        )
+                .isInstanceOf(InvalidExpirationException.class)
+                .hasMessage("Expiration time must be in the future");
+    }
 }

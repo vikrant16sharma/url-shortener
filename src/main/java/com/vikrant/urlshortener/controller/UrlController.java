@@ -23,7 +23,7 @@ public class UrlController {
 //        return service.shortUrl(request.getUrl());
 //    }
     public ResponseEntity<CreateUrlResponse> createUrl(@Valid @RequestBody CreateUrlRequest request){
-        String url = service.shortUrl(request.getUrl());
+        String url = service.shortUrl(request.getUrl(),request.getExpiresAt());
         CreateUrlResponse response = new CreateUrlResponse(url);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
