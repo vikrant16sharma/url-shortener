@@ -5,7 +5,7 @@ import com.vikrant.urlshortener.exception.InvalidExpirationException;
 import com.vikrant.urlshortener.exception.ShortUrlExpiredException;
 import com.vikrant.urlshortener.exception.ShortUrlNotFoundException;
 import com.vikrant.urlshortener.Services.UrlShortenerService;
-
+import com.vikrant.urlshortener.dto.UrlAnalyticsResponse;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.context.annotation.Import;
-
+import static org.hamcrest.Matchers.nullValue;
 import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -136,5 +136,88 @@ class UrlControllerTest {
                         """)
                 )
                 .andExpect(status().isBadRequest());
+    }
+    @Test
+    void shouldReturnUrlAnalytics() throws Exception {
+
+        LocalDateTime firstClick =
+                LocalDateTime.of(2026, 9, 22, 10, 0);
+
+        LocalDateTime lastClick =
+                LocalDateTime.of(2026, 9, 22, 11, 0);
+
+        UrlAnalyticsResponse response =
+                new UrlAnalyticsResponse(
+                        "abc123",
+                        "https://google.com",
+                        5L,
+                        firstClick,
+                        lastClick
+                );
+
+        when(service.getAnalytics("abc123"))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/api/urls/abc123/analytics")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shortCode")
+                        .value("abc123"))
+                .andExpect(jsonPath("$.originalUrl")
+                        .value("https://google.com"))
+                .andExpect(jsonPath("$.totalClicks")
+                        .value(5))
+                .andExpect(jsonPath("$.firstClickedAt")
+                        .value("2026-09-22T10:00:00"))
+                .andExpect(jsonPath("$.lastClickedAt")
+                        .value("2026-09-22T11:00:00"));
+    }
+
+    @Test
+    void shouldReturn404WhenAnalyticsCodeDoesNotExist() throws Exception {
+
+        when(service.getAnalytics("doesNotExist"))
+                .thenThrow(
+                        new ShortUrlNotFoundException(
+                                "Short URL not found: doesNotExist"
+                        )
+                );
+
+        mockMvc.perform(
+                        get("/api/urls/doesNotExist/analytics")
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturnAnalyticsWithZeroClicks() throws Exception {
+
+        UrlAnalyticsResponse response =
+                new UrlAnalyticsResponse(
+                        "abc123",
+                        "https://google.com",
+                        0L,
+                        null,
+                        null
+                );
+
+        when(service.getAnalytics("abc123"))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/api/urls/abc123/analytics")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shortCode")
+                        .value("abc123"))
+                .andExpect(jsonPath("$.originalUrl")
+                        .value("https://google.com"))
+                .andExpect(jsonPath("$.totalClicks")
+                        .value(0))
+                .andExpect(jsonPath("$.firstClickedAt")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.lastClickedAt")
+                        .doesNotExist());
     }
 }
