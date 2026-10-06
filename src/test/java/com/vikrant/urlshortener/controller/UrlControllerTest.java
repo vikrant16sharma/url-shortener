@@ -7,11 +7,14 @@ import com.vikrant.urlshortener.exception.ShortUrlNotFoundException;
 import com.vikrant.urlshortener.Services.UrlShortenerService;
 import com.vikrant.urlshortener.dto.UrlAnalyticsResponse;
 
+import com.vikrant.urlshortener.security.JwtAuthenticationFilter;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.when;
@@ -26,6 +29,7 @@ import java.time.LocalDateTime;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = UrlController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 class UrlControllerTest {
 
@@ -34,6 +38,9 @@ class UrlControllerTest {
 
     @MockitoBean
     private UrlShortenerService service;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
     void shouldCreateShortUrl() throws Exception {

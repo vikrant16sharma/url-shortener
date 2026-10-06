@@ -11,8 +11,12 @@ import com.vikrant.urlshortener.repository.ClickEventRepository;
 import com.vikrant.urlshortener.repository.UrlRepository;
 import com.vikrant.urlshortener.Services.CodeGenerator;
 import com.vikrant.urlshortener.Services.UrlShortenerService;
+import com.vikrant.urlshortener.security.AuthenticatedUserService;
+import com.vikrant.urlshortener.exception.UrlAccessDeniedException;
+import com.vikrant.urlshortener.entity.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDateTime;
 
@@ -25,17 +29,20 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
     private final UrlRepository urlRepository;
     private final CodeGenerator codeGenerator;
     private final ClickEventRepository clickEventRepository;
+    private final AuthenticatedUserService authenticatedUserService;
 
     public UrlShortenerServiceImpl(
             UrlRepository urlRepository,
             CodeGenerator codeGenerator,
             AppProperties appProperties,
-            ClickEventRepository clickEventRepository) {
+            ClickEventRepository clickEventRepository,
+            AuthenticatedUserService authenticatedUserService) {
 
         this.appProperties = appProperties;
         this.urlRepository = urlRepository;
         this.codeGenerator = codeGenerator;
         this.clickEventRepository = clickEventRepository;
+        this.authenticatedUserService = authenticatedUserService;
     }
 
     @Override
@@ -48,13 +55,14 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
                     "Expiration time must be in the future"
             );
         }
+        User currentUser = authenticatedUserService.getCurrentUser();
         return urlRepository
-                .findByOriginalUrl(originalUrl)
+                .findByOriginalUrl(originalUrl,currentUser.getId())
                 .map(url -> buildShortUrl(url.getShortCode()))
-                .orElseGet(() -> createShortUrl(originalUrl,expiresAt));
+                .orElseGet(() -> createShortUrl(originalUrl,expiresAt,currentUser));
     }
 
-    private String createShortUrl(String originalUrl, LocalDateTime expiresAt) {
+    private String createShortUrl(String originalUrl, LocalDateTime expiresAt,User currentUser) {
 
         String code;
 
@@ -67,7 +75,7 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
         url.setOriginalUrl(originalUrl);
         url.setShortCode(code);
         url.setExpiresAt(expiresAt);
-
+        url.setUser(currentUser);
         urlRepository.save(url);
 
         return buildShortUrl(code);
@@ -115,6 +123,15 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
                                 "Short URL not found: " + code
                         )
                 );
+
+        User currentUser =
+                authenticatedUserService.getCurrentUser();
+
+        if (!url.getUser().getId().equals(currentUser.getId())) {
+            throw new UrlAccessDeniedException(
+                    "You do not have access to this URL"
+            );
+        }
 
         long totalClicks =
                 clickEventRepository.countByUrlId(url.getId());

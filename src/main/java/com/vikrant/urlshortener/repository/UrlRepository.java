@@ -5,5 +5,5 @@ import java.util.Optional;
 public interface UrlRepository extends JpaRepository<Url,Long> {
     Optional<Url> findByShortCode(String shortCode);
 
-    Optional<Url> findByOriginalUrl(String originalUrl);
+    Optional<Url> findByOriginalUrl(String originalUrl,Long userId);
 }

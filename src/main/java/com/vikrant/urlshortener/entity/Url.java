@@ -6,6 +6,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +31,13 @@ public class Url {
 
     @Column(nullable = false)
     private String shortCode;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "user_id",
+            nullable = false
+    )
+    private User user;
 
     @Column
     private LocalDateTime expiresAt;
@@ -61,6 +69,14 @@ public class Url {
 
     public void setShortCode(String shortCode) {
         this.shortCode = shortCode;
+    }
+
+    public User getUser(){
+        return user;
+    }
+
+    public void setUser(User user){
+        this.user = user;
     }
 
     public LocalDateTime getCreatedAt() {

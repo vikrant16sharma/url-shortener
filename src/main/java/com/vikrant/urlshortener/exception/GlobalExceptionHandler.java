@@ -6,6 +6,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+
+import java.util.HashMap;
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(ShortUrlNotFoundException.class)
@@ -36,6 +40,41 @@ public class GlobalExceptionHandler {
     ) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ResponseEntity<Map<String, String>> handleEmailAlreadyRegistered(
+            EmailAlreadyRegisteredException ex
+    ) {
+        Map<String, String> body = new HashMap<>();
+
+        body.put("error", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(body);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidCredentials(
+            InvalidCredentialsException ex
+    ) {
+        Map<String, String> body = new HashMap<>();
+
+        body.put("error", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(body);
+    }
+
+    @ExceptionHandler(UrlAccessDeniedException.class)
+    public ResponseEntity<String> handleUrlAccessDenied(
+            UrlAccessDeniedException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(ex.getMessage());
     }
 }
