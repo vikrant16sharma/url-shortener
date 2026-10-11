@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-
+import java.util.UUID;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,17 +23,23 @@ class UrlRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     @AfterEach
     void cleanup() {
+        refreshTokenRepository.deleteAll();
         clickEventRepository.deleteAll();
         urlRepository.deleteAll();
         userRepository.deleteAll();
+
     }
     private User createTestUser() {
-
         User user = new User();
 
-        user.setEmail("test@example.com");
+        user.setEmail(
+                "url-test-" + UUID.randomUUID() + "@example.com"
+        );
         user.setPasswordHash("hashed-password");
 
         return userRepository.save(user);

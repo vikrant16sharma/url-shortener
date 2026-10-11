@@ -16,8 +16,12 @@ class UserRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     @AfterEach
     void cleanup() {
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
 

@@ -1,13 +1,16 @@
 package com.vikrant.urlshortener.Services.impl;
 import com.vikrant.urlshortener.Services.JwtService;
+import com.vikrant.urlshortener.Services.RefreshTokenService;
 import com.vikrant.urlshortener.dto.RegisterRequest;
 import com.vikrant.urlshortener.dto.RegisterResponse;
+import com.vikrant.urlshortener.entity.RefreshToken;
 import com.vikrant.urlshortener.entity.User;
 import com.vikrant.urlshortener.exception.EmailAlreadyRegisteredException;
 import com.vikrant.urlshortener.repository.UserRepository;
 import com.vikrant.urlshortener.Services.AuthService;
 import com.vikrant.urlshortener.dto.LoginResponse;
 import com.vikrant.urlshortener.dto.LoginRequest;
+import com.vikrant.urlshortener.dto.*;
 import com.vikrant.urlshortener.exception.InvalidCredentialsException;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,14 +24,18 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
+    private final RefreshTokenService refreshTokenService;
+
     public AuthServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Override
@@ -59,7 +66,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository
@@ -86,11 +93,55 @@ public class AuthServiceImpl implements AuthService {
                         user.getId(),
                         user.getEmail()
                 );
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
         return new LoginResponse(
                 user.getId(),
                 user.getEmail(),
-                accessToken
+                accessToken,
+                refreshToken.getToken()
+        );
+    }
+    @Override
+    @Transactional
+    public RefreshTokenResponse refreshAccessToken(
+            RefreshTokenRequest request
+    ) {
+
+        RefreshToken oldRefreshToken =
+                refreshTokenService.verifyRefreshToken(
+                        request.getRefreshToken()
+                );
+
+        User user = oldRefreshToken.getUser();
+
+        // Revoke the old refresh token
+        refreshTokenService.revokeToken(
+                oldRefreshToken.getToken()
+        );
+
+        // Generate a new refresh token
+        RefreshToken newRefreshToken =
+                refreshTokenService.createRefreshToken(user);
+
+        // Generate a new access token
+        String accessToken =
+                jwtService.generateToken(
+                        user.getId(),
+                        user.getEmail()
+                );
+
+        return new RefreshTokenResponse(
+                accessToken,
+                newRefreshToken.getToken()
+        );
+    }
+    @Override
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+
+        refreshTokenService.revokeToken(
+                request.getRefreshToken()
         );
     }
 }

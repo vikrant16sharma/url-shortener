@@ -5,7 +5,7 @@ import com.vikrant.urlshortener.dto.RegisterResponse;
 import com.vikrant.urlshortener.Services.AuthService;
 import com.vikrant.urlshortener.dto.LoginRequest;
 import com.vikrant.urlshortener.dto.LoginResponse;
-
+import com.vikrant.urlshortener.dto.*;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -43,5 +43,26 @@ public class AuthController {
                 authService.login(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshTokenResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+
+        RefreshTokenResponse response =
+                authService.refreshAccessToken(request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+
+        authService.logout(request);
+
+        return ResponseEntity.noContent().build();
     }
 }

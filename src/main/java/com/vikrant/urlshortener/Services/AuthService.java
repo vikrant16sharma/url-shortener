@@ -1,11 +1,14 @@
 package com.vikrant.urlshortener.Services;
 
-import com.vikrant.urlshortener.dto.RegisterRequest;
-import com.vikrant.urlshortener.dto.RegisterResponse;
-import com.vikrant.urlshortener.dto.LoginRequest;
-import com.vikrant.urlshortener.dto.LoginResponse;
+import com.vikrant.urlshortener.dto.*;
+
 public interface AuthService {
 
     RegisterResponse register(RegisterRequest request);
     LoginResponse login(LoginRequest request);
+
+    RefreshTokenResponse refreshAccessToken(
+            RefreshTokenRequest request
+    );
+    void logout(RefreshTokenRequest request);
 }

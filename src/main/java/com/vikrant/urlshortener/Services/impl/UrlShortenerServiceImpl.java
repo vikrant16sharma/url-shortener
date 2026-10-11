@@ -96,12 +96,12 @@ public class UrlShortenerServiceImpl implements UrlShortenerService {
                                 "Short URL not found: " + code
                         )
                 );
-        if(
-                url.getExpireAt() != null &&
-                        !url.getExpireAt().isAfter(LocalDateTime.now())
-        ){
+        LocalDateTime now = LocalDateTime.now();
+
+        if (url.getExpireAt() != null &&
+                !url.getExpireAt().isAfter(now)) {
             throw new ShortUrlExpiredException(
-                    "Short Url has expired: "+ code
+                    "Short URL has expired: " + code
             );
         }
         ClickEvent clickEvent = new ClickEvent();
