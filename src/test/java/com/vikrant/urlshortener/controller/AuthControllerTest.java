@@ -3,6 +3,7 @@ package com.vikrant.urlshortener.controller;
 import com.vikrant.urlshortener.dto.LoginRequest;
 import com.vikrant.urlshortener.dto.LoginResponse;
 import com.vikrant.urlshortener.Services.AuthService;
+import com.vikrant.urlshortener.ratelimit.RateLimitFilter;
 import com.vikrant.urlshortener.security.JwtAuthenticationFilter;
 
 import com.vikrant.urlshortener.dto.*;
@@ -16,6 +17,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.vikrant.urlshortener.ratelimit.RateLimitService;
+import com.vikrant.urlshortener.security.AuthenticatedUserService;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
@@ -35,7 +38,12 @@ class AuthControllerTest {
     private AuthService authService;
 
     @MockitoBean
+    private RateLimitService rateLimitService;
+
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockitoBean
+    private AuthenticatedUserService authenticatedUserService;
 
     @Test
     void shouldLoginSuccessfully() throws Exception {
