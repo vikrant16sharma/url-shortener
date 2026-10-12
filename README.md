@@ -1,630 +1,689 @@
-🚀 Project Overview
-
-URL Shortener is a backend service that converts long URLs into compact, shareable URLs.
-
-For example:
-
-https://www.example.com/products/category/item?id=12345
-                              ↓
-                    short.ly/x7Kp91a
-
-When a user accesses the shortened URL, the service resolves the short code and redirects them to the original URL.
-
-The project is being built incrementally with a focus on clean architecture, maintainability, testability, and production-oriented backend practices.
-
-✨ Current Capabilities
-Capability	Status
-REST API	✅
-URL validation	✅
-Base62 code generation	✅
-DTO-based API contracts	✅
-Global exception handling	✅
-Layered architecture	✅
-JPA Entity	✅
-PostgreSQL configuration	✅
-JPA Auditing	✅
-Controller tests	✅
-Service tests	✅
-Application context tests	✅
-Persistent URL storage	🚧
-URL expiration	🔜
-Click analytics	🔜
-Authentication	🔜
-Rate limiting	🔜
-Redis caching	🔜
-Docker	🔜
-CI/CD	🔜
-
-Current milestone: Core API + testing infrastructure is complete. The next milestone is connecting the service's URL storage flow completely to PostgreSQL.
-
-🏗️ Architecture
-
-The application follows a layered architecture designed to keep business logic independent from HTTP and persistence concerns.
-
-                         ┌──────────────┐
-                         │    Client    │
-                         └──────┬───────┘
-                                │
-                                ▼
-                    ┌─────────────────────┐
-                    │   REST Controller   │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │        DTOs         │
-                    │ Request / Response  │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │     Validation      │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │       Service       │
-                    │   Business Logic    │
-                    └───────┬───────┬─────┘
-                            │       │
-                            ▼       ▼
-                 ┌────────────┐  ┌────────────┐
-                 │   Base62   │  │ Repository │
-                 │ Generator  │  │    Layer   │
-                 └────────────┘  └──────┬─────┘
-                                        │
-                                        ▼
-                                ┌──────────────┐
-                                │  PostgreSQL  │
-                                └──────────────┘
-Design principle
-
-Each layer has one primary responsibility:
-
-Controller   → HTTP
-DTO          → API contract
-Validation   → Input correctness
-Service      → Business logic
-Generator    → Short-code generation
-Repository   → Data access
-Entity       → Database representation
-PostgreSQL   → Persistent storage
-🔄 Request Lifecycle
-Create Short URL
-POST /api/urls
-       │
-       ▼
-┌─────────────────┐
-│  UrlController  │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────┐
-│ CreateUrlRequest     │
-│ { "url": "..." }     │
-└──────────┬───────────┘
-           │
-           ▼
-     Bean Validation
-           │
-           ▼
-┌──────────────────────┐
-│ UrlShortenerService  │
-└──────────┬───────────┘
-           │
-           ▼
-   Base62 Code Generator
-           │
-           ▼
-┌──────────────────────┐
-│ CreateUrlResponse    │
-│ { "shortUrl": "..." }│
-└──────────────────────┘
-Example
-
-Request
-
-POST /api/urls
-Content-Type: application/json
-{
-  "url": "https://google.com"
-}
-
-Response
-
-201 Created
-{
-  "shortUrl": "short.ly/x7Kp91a"
-}
-↪️ URL Redirection
-GET /x7Kp91a
-       │
-       ▼
- UrlController
-       │
-       ▼
- UrlShortenerService
-       │
-       ▼
-   URL lookup
-       │
-       ▼
-Original URL
-       │
-       ▼
-  302 Found
-       │
-       ▼
-Location: https://google.com
-
-Example:
-
-GET /x7Kp91a
-
-Response:
-
-302 Found
-Location: https://google.com
-🔢 Base62 Short-Code Generation
-
-The project uses Base62 encoding to generate compact URL-friendly codes.
-
-Character set:
-
-0123456789
-abcdefghijklmnopqrstuvwxyz
-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-
-That provides:
-
-62 characters
-
-per position.
-
-Examples
-Decimal	Base62
-0	0
-9	9
-10	a
-35	z
-36	A
-61	Z
-62	10
-63	11
-125	21
-3844	100
-
-Base62 allows the generated identifiers to remain relatively short while using only URL-friendly characters.
-
-🗄️ Data Model
-
-The Url entity currently represents:
-
-┌──────────────────────────────────┐
-│              urls                │
-├──────────────────────────────────┤
-│ id            BIGINT             │
-│ original_url  VARCHAR            │
-│ short_code    VARCHAR UNIQUE     │
-│ created_at    TIMESTAMP          │
-│ updated_at    TIMESTAMP          │
-└──────────────────────────────────┘
-
-The short code has a unique constraint:
-
-uk_urls_short_code
-
-This ensures that two URL records cannot share the same short code.
-
-🕒 JPA Auditing
-
-The project uses Spring Data JPA auditing to automatically maintain timestamps.
-
-@CreatedDate
-private LocalDateTime createdAt;
-
-@LastModifiedDate
-private LocalDateTime updatedAt;
-
-This means timestamp management does not need to be manually implemented inside the service layer.
-
-🧩 API Design
-POST /api/urls
-
-Creates a shortened URL.
-
-Request
-{
-  "url": "https://example.com"
-}
-Response
-{
-  "shortUrl": "short.ly/x7Kp91a"
-}
-Status
-201 Created
-GET /{code}
-
-Redirects to the original URL.
-
-Example
-GET /x7Kp91a
-Response
-302 Found
-Location: https://example.com
-🛡️ Validation & Error Handling
-
-Incoming URLs are validated before reaching the business layer.
-
-Valid:
-
-https://google.com
-http://example.com
-https://github.com/vikrant16sharma
-
-Invalid:
-
-google.com
-example
-
-The application uses a centralized:
-
-GlobalExceptionHandler
-
-to handle:
-
-Validation failures
-Missing short codes
-Application exceptions
-Appropriate HTTP status codes
-
-Example:
-
-GET /doesNotExist
-404 Not Found
-🧪 Testing
-
-Testing is treated as part of the development process rather than something added at the end.
-
-Test layers
-┌─────────────────────────────┐
-│   Application Context Test  │
-├─────────────────────────────┤
-│       Controller Tests      │
-├─────────────────────────────┤
-│         Service Tests       │
-└─────────────────────────────┘
-Current test suite
-
-UrlControllerTest
-
-Create short URL
-Redirect
-Non-existent short code
-Invalid URL
-
-UrlShortenerServiceImplTest
-
-Service behavior
-Mocked dependencies
-Short-code generation flow
-
-UrlshortenerApplicationTests
-
-Spring application context startup
-Current result
-Tests run:     9
-Failures:      0
-Errors:        0
-Skipped:       0
-
-BUILD SUCCESS
-
-Run the test suite:
-
-mvn clean test
-⚙️ Tech Stack
-Technology	Role
-Java 21	Application language
-Spring Boot 4.1.1	Backend framework
-Spring Web MVC	REST API
-Spring Data JPA	Persistence abstraction
-Hibernate	ORM
-PostgreSQL	Database
-Maven	Build & dependency management
-JUnit	Testing
-Mockito	Mocking
-Jakarta Validation	Request validation
-Git / GitHub	Version control
-📁 Project Structure
-urlshortener/
-│
-├── .mvn/
-│
+# URL Shortener
+
+A backend-focused URL Shortener built with **Java 21, Spring Boot,
+Spring Security, JWT, Spring Data JPA, and PostgreSQL**. The project is
+being developed incrementally with an emphasis on clean layering,
+authentication, ownership checks, analytics, automated tests, and
+production-readiness.
+
+**Repository:**
+[vikrant16sharma/url-shortener](https://github.com/vikrant16sharma/url-shortener)\
+**Default branch:** `main`\
+**Current focus:** Phase 8 --- Rate Limiting (design and algorithm
+selection; implementation has not started yet).
+
+------------------------------------------------------------------------
+
+## Table of Contents
+
+-   [Project Goals](#project-goals)
+-   [Technology Stack](#technology-stack)
+-   [Current Status](#current-status)
+-   [Features Implemented](#features-implemented)
+-   [API Overview](#api-overview)
+-   [Architecture](#architecture)
+-   [Current Directory Structure](#current-directory-structure)
+-   [Configuration](#configuration)
+-   [Run Locally](#run-locally)
+-   [Testing](#testing)
+-   [Roadmap](#roadmap)
+-   [Engineering Notes](#engineering-notes)
+-   [Git Workflow](#git-workflow)
+
+------------------------------------------------------------------------
+
+## Project Goals
+
+The project is intended to demonstrate practical backend engineering
+concepts:
+
+-   REST API design and HTTP status-code semantics.
+-   Short-code generation and URL redirection.
+-   Layered architecture and constructor-based dependency injection.
+-   Relational data modeling with PostgreSQL and JPA.
+-   JWT-based authentication and endpoint authorization.
+-   Refresh-token rotation and logout.
+-   URL ownership enforcement.
+-   Click analytics and query optimization.
+-   Automated unit, repository, controller, and security tests.
+-   Incremental production hardening.
+
+The current scope is the backend. A frontend is not part of the current
+implementation.
+
+## Technology Stack
+
+Area               Technology
+  ------------------ ----------------------------------------------
+Language           Java 21
+Framework          Spring Boot 4.1.1
+Build              Maven
+Web                Spring MVC / Spring Web MVC
+Security           Spring Security
+Authentication     JWT using JJWT
+Persistence        Spring Data JPA, Hibernate
+Database           PostgreSQL 18.x
+Validation         Jakarta Bean Validation
+Password hashing   BCrypt via Spring Security `PasswordEncoder`
+Testing            JUnit, Mockito, Spring Boot Test, MockMvc
+Version control    Git and GitHub
+
+**Planned, not yet implemented:** Redis, OpenAPI/Swagger documentation,
+Docker, CI/CD, deployment, and monitoring.
+
+------------------------------------------------------------------------
+
+## Current Status
+
+Last project checkpoint reported: **64 tests passing, 0 failures, 0
+errors**. Re-run the test suite on the current checkout to verify the
+latest state.
+
+  -----------------------------------------------------------------------
+Area                    Status                  Notes
+  ----------------------- ----------------------- -----------------------
+Core URL shortening     Complete                Generate and persist
+short codes
+
+Redirect endpoint       Complete                Redirects with HTTP 302
+
+Request validation      Complete                URL format and
+expiration validation
+
+Global exception        Complete                Consistent handling for
+handling                                        application errors
+
+PostgreSQL persistence  Complete                JPA entities and
+repositories
+
+URL expiration          Complete                Expired links return
+HTTP 410
+
+Click analytics         Complete                Click events and
+analytics endpoint
+
+Database query          Complete                Composite index for URL
+optimization                                    click timestamps
+
+User registration       Complete                Email validation and
+BCrypt password hashing
+
+Login and JWT access    Complete                Token generation and
+tokens                                          validation
+
+Refresh tokens          Complete                Persistence, rotation,
+expiry, and revocation
+
+Logout                  Complete                Refresh-token
+revocation
+
+Authorization and       Complete                Analytics access
+ownership                                       restricted to the URL
+owner
+
+Automated tests         Green at last           64 passing tests were
+checkpoint              reported
+
+Rate limiting           **Current task**        Design first; no
+limiter implementation
+yet
+
+Redis caching           Planned                 Not implemented
+
+OpenAPI / Swagger       Planned                 Not implemented
+
+Docker / CI/CD /        Planned                 Not implemented
+deployment
+  -----------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## Features Implemented
+
+### URL shortening and redirects
+
+-   Accepts a long URL and creates a short URL.
+-   Generates short codes using Base62 encoding.
+-   Stores URL records in PostgreSQL.
+-   Redirects short URLs to their original destination.
+-   Returns HTTP `404 Not Found` for unknown short codes.
+-   Validates submitted URLs.
+-   Supports optional expiration timestamps.
+-   Returns HTTP `410 Gone` for expired short URLs.
+
+### Authentication and authorization
+
+-   User registration and login endpoints.
+-   Password hashing with BCrypt.
+-   JWT access-token generation and validation.
+-   Stateless Spring Security configuration.
+-   Refresh-token persistence, rotation, expiration, and revocation.
+-   Logout through refresh-token revocation.
+-   Public short-link redirects.
+-   Authenticated URL creation and analytics.
+-   Owner-only access to a URL's analytics.
+-   HTTP `401 Unauthorized` and `403 Forbidden` handling.
+
+### Click analytics
+
+-   Records click events when a valid, non-expired short URL is
+    redirected.
+-   Provides an analytics endpoint with total clicks, first click, and
+    most recent click.
+-   Uses a composite database index on `(url_id, clicked_at)` to support
+    analytics queries.
+
+### Testing
+
+-   Request DTO validation tests.
+-   Password encoder tests.
+-   Service and controller tests.
+-   Repository tests.
+-   Refresh-token tests.
+-   Security integration tests for missing, invalid, and valid JWTs.
+-   Ownership checks for analytics.
+
+------------------------------------------------------------------------
+
+## API Overview
+
+The following endpoints reflect the current project design and
+implementation described in the project checkpoint. Verify against the
+controllers in the repository before treating this list as a formal API
+contract.
+
+  ------------------------------------------------------------------------------------
+Method            Endpoint                       Access            Purpose
+  ----------------- ------------------------------ ----------------- -----------------
+`POST`            `/api/auth/register`           Public            Register a user
+
+`POST`            `/api/auth/login`              Public            Authenticate and
+receive tokens
+
+`POST`            `/api/auth/refresh`            Public; refresh   Rotate refresh
+token required    token and issue a
+new access token
+
+`POST`            `/api/auth/logout`             Public; refresh   Revoke refresh
+token required    token
+
+`POST`            `/api/urls`                    Authenticated     Create or
+retrieve the
+user's short URL
+
+`GET`             `/{code}`                      Public            Redirect to the
+original URL
+
+`GET`             `/api/urls/{code}/analytics`   Authenticated     Retrieve click
+owner             analytics
+  ------------------------------------------------------------------------------------
+
+### Expected response behavior
+
+Scenario                                                            HTTP status
+  ----------------------------------------- -------------------------------------
+URL created                                                       `201 Created`
+Redirect succeeds                                                   `302 Found`
+Invalid request                                               `400 Bad Request`
+Missing short code                                              `404 Not Found`
+Expired short URL                                                    `410 Gone`
+Missing or invalid authentication                            `401 Unauthorized`
+Authenticated user does not own the URL                         `403 Forbidden`
+Duplicate registered email                                       `409 Conflict`
+Rate limit exceeded                         `429 Too Many Requests` --- planned
+
+------------------------------------------------------------------------
+
+## Architecture
+
+The application follows a layered request flow:
+
+``` text
+HTTP Client
+    |
+    v
+Spring Security Filter Chain
+    |
+    v
+Controller
+    |
+    v
+DTO validation
+    |
+    v
+Service
+    |
+    +------> Code Generator
+    |
+    v
+Repository (Spring Data JPA)
+    |
+    v
+PostgreSQL
+```
+
+For redirects, the public redirect endpoint looks up the short code,
+checks expiration, records a click event, and returns a redirect
+response.
+
+### Responsibilities
+
+-   **Controller:** HTTP mapping, request/response handling, and
+    validation entry points.
+-   **DTO:** Defines API request and response shapes; prevents entities
+    from becoming the public API contract.
+-   **Service:** Owns business rules and transaction boundaries.
+-   **Repository:** Encapsulates persistence queries.
+-   **Entity:** Represents persisted domain data.
+-   **Security:** Authenticates requests and enforces access rules.
+-   **Exception handling:** Maps application exceptions to appropriate
+    HTTP responses.
+-   **Code generator:** Generates compact short codes.
+-   **Click event model:** Stores individual redirect events for
+    analytics.
+
+------------------------------------------------------------------------
+
+## Current Directory Structure
+
+The exact repository tree was not available for direct inspection when
+this README was prepared. The tree below is a **best-effort structure
+based on the classes and packages discussed during implementation**, not
+a verified live directory listing. Compare it with the actual repository
+and update it if package names or files differ.
+
+``` text
+url-shortener/
 ├── src/
-│   │
 │   ├── main/
-│   │   │
 │   │   ├── java/
-│   │   │   └── com/vikrant/urlshortener/
-│   │   │       │
-│   │   │       ├── controller/
-│   │   │       │   └── UrlController.java
-│   │   │       │
-│   │   │       ├── dto/
-│   │   │       │   ├── CreateUrlRequest.java
-│   │   │       │   └── CreateUrlResponse.java
-│   │   │       │
-│   │   │       ├── entity/
-│   │   │       │   └── Url.java
-│   │   │       │
-│   │   │       ├── exception/
-│   │   │       │   ├── GlobalExceptionHandler.java
-│   │   │       │   └── ShortUrlNotFoundException.java
-│   │   │       │
-│   │   │       ├── repository/
-│   │   │       │   └── UrlRepository.java
-│   │   │       │
-│   │   │       ├── service/
-│   │   │       │   └── UrlShortenerService.java
-│   │   │       │
-│   │   │       └── ...
-│   │   │
+│   │   │   └── com/
+│   │   │       └── vikrant/
+│   │   │           └── urlshortener/
+│   │   │               ├── UrlshortenerApplication.java
+│   │   │               ├── config/
+│   │   │               │   ├── AppProperties.java
+│   │   │               │   ├── JwtProperties.java
+│   │   │               │   ├── JpaAuditingConfig.java
+│   │   │               │   └── PasswordConfig.java
+│   │   │               ├── controller/
+│   │   │               │   ├── AuthController.java
+│   │   │               │   └── UrlController.java
+│   │   │               ├── dto/
+│   │   │               │   ├── auth/
+│   │   │               │   └── url/
+│   │   │               ├── entity/
+│   │   │               │   ├── User.java
+│   │   │               │   ├── Url.java
+│   │   │               │   ├── ClickEvent.java
+│   │   │               │   └── RefreshToken.java
+│   │   │               ├── repository/
+│   │   │               │   ├── UserRepository.java
+│   │   │               │   ├── UrlRepository.java
+│   │   │               │   ├── ClickEventRepository.java
+│   │   │               │   └── RefreshTokenRepository.java
+│   │   │               ├── service/
+│   │   │               │   ├── AuthService.java
+│   │   │               │   ├── JwtService.java
+│   │   │               │   └── RefreshTokenService.java
+│   │   │               ├── service/impl/
+│   │   │               │   ├── AuthServiceImpl.java
+│   │   │               │   ├── JwtServiceImpl.java
+│   │   │               │   └── ...
+│   │   │               ├── security/
+│   │   │               │   ├── SecurityConfig.java
+│   │   │               │   ├── JwtAuthenticationFilter.java
+│   │   │               │   └── CustomUserDetailsService.java
+│   │   │               ├── exception/
+│   │   │               │   └── ...
+│   │   │               └── ...
 │   │   └── resources/
 │   │       └── application.properties
-│   │
 │   └── test/
 │       └── java/
-│
+│           └── com/
+│               └── vikrant/
+│                   └── urlshortener/
+│                       ├── controller/
+│                       ├── repository/
+│                       ├── security/
+│                       ├── service/
+│                       └── ...
 ├── .gitignore
-├── .gitattributes
 ├── mvnw
 ├── mvnw.cmd
 ├── pom.xml
 └── README.md
-🔐 Configuration
+```
 
-Database credentials are not hardcoded.
+### Verify the actual tree on Windows
 
-The application uses environment variables:
+From the repository root in PowerShell:
 
-spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/urlshortener}
-spring.datasource.username=${DB_USERNAME:postgres}
-spring.datasource.password=${DB_PASSWORD}
-PowerShell
-$env:DB_PASSWORD="your_password"
+``` powershell
+tree /F /A
+```
 
-Optional:
+To save the listing to a text file:
 
-$env:DB_URL="jdbc:postgresql://localhost:5432/urlshortener"
-$env:DB_USERNAME="postgres"
+``` powershell
+tree /F /A > project-tree.txt
+```
 
-This keeps credentials outside the source code.
+Review the output and update the tree above to match the actual files.
+Do not commit generated build output such as `target/`.
 
-🏃 Getting Started
-Requirements
-Java 21
-PostgreSQL
-Maven
-Git
+------------------------------------------------------------------------
 
-Verify:
+## Configuration
 
-java -version
-mvn -version
-Clone
+The application uses environment variables for database credentials and
+JWT secrets. Do not commit real credentials, tokens, or `.env` files.
+
+Known configuration keys:
+
+  -------------------------------------------------------------------------------------------------------
+Variable                      Purpose                 Example / default
+  ----------------------------- ----------------------- -------------------------------------------------
+`DB_URL`                      JDBC connection URL     `jdbc:postgresql://localhost:5432/urlshortener`
+
+`DB_USERNAME`                 PostgreSQL username     `postgres` for local development
+
+`DB_PASSWORD`                 PostgreSQL password     Set locally; no default should be committed
+
+`JWT_SECRET`                  Secret used to sign     Supply a strong Base64-encoded secret
+JWTs
+
+`JWT_REFRESH_EXPIRATION_MS`   Refresh-token lifetime  `604800000` ms
+override
+
+`APP_BASE_URL`                Base URL used to build  `http://localhost:8080/`
+short links
+  -------------------------------------------------------------------------------------------------------
+
+The application properties discussed during development also use: -
+Access-token lifetime: `3600000` milliseconds (1 hour). - Refresh-token
+lifetime default: `604800000` milliseconds (7 days). - Hibernate schema
+setting: `spring.jpa.hibernate.ddl-auto=update` during development.
+
+**Production note:** use a managed secret store or deployment
+environment variables, review schema migrations before production, and
+do not enable verbose SQL logging unnecessarily.
+
+### Example local environment setup (PowerShell)
+
+Set values for the current terminal session:
+
+``` powershell
+$env:DB_URL = "jdbc:postgresql://localhost:5432/urlshortener"
+$env:DB_USERNAME = "postgres"
+$env:DB_PASSWORD = "<your-local-postgres-password>"
+$env:JWT_SECRET = "<your-base64-encoded-secret>"
+$env:APP_BASE_URL = "http://localhost:8080/"
+```
+
+Replace the placeholders locally. Do not paste real secrets into source
+control or public issues.
+
+------------------------------------------------------------------------
+
+## Run Locally
+
+### Prerequisites
+
+-   JDK 21
+-   PostgreSQL
+-   Git
+-   Maven, or the included Maven Wrapper
+
+### 1. Clone the repository
+
+``` bash
 git clone https://github.com/vikrant16sharma/url-shortener.git
 cd url-shortener
-Create Database
+```
+
+### 2. Create the database
+
+Create a PostgreSQL database named `urlshortener` using your preferred
+PostgreSQL client:
+
+``` sql
 CREATE DATABASE urlshortener;
+```
 
-Set your PostgreSQL password:
+Ensure the database username and password match the environment
+variables.
 
-$env:DB_PASSWORD="your_password"
-Start Application
+### 3. Configure environment variables
 
-Using Maven:
+Set `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` as shown
+above. Configure `APP_BASE_URL` if your local port or host differs.
 
+### 4. Run tests
+
+On Windows:
+
+``` powershell
+.\mvnw.cmd clean test
+```
+
+Or, if Maven is installed:
+
+``` powershell
+mvn clean test
+```
+
+### 5. Start the application
+
+On Windows:
+
+``` powershell
+.\mvnw.cmd spring-boot:run
+```
+
+Or:
+
+``` powershell
 mvn spring-boot:run
+```
 
-or Maven Wrapper:
+The local application is expected to run at `http://localhost:8080`
+unless configured otherwise.
 
-.\mvnw spring-boot:run
+------------------------------------------------------------------------
 
-Application:
+## Testing
 
-http://localhost:8080
-🗺️ Development Roadmap
+Run the complete suite before merging a milestone:
 
-The project is intentionally being developed in stages.
+``` powershell
+.\mvnw.cmd clean test
+```
 
-Phase 1 — Core API
- REST API
- URL creation
- Base62 generation
- Redirect
- DTOs
- Validation
- Exception handling
- Unit tests
- Controller tests
-Phase 2 — Persistence
- PostgreSQL configuration
- JPA
- Hibernate
- URL entity
- Repository foundation
- JPA auditing
- Persist URLs through repository
- Retrieve URLs through repository
- Remove remaining in-memory storage
-Phase 3 — Advanced Backend
- URL expiration
- Click analytics
- Authentication
- Authorization
- Rate limiting
- Redis caching
-Phase 4 — Productionization
- OpenAPI / Swagger
- Docker
- Integration testing
- CI/CD
- Deployment
- Monitoring
- Performance testing
-🔮 Planned Architecture
+At the latest recorded checkpoint, the suite reported:
 
-As the system evolves, the architecture will move toward a more production-oriented design:
+``` text
+Tests run: 64
+Failures: 0
+Errors: 0
+Skipped: 0
+```
 
-                         ┌─────────────┐
-                         │   Client    │
-                         └──────┬──────┘
-                                │
-                                ▼
-                    ┌─────────────────────┐
-                    │   Spring Boot API   │
-                    └──────────┬──────────┘
-                               │
-                  ┌────────────┴────────────┐
-                  │                         │
-                  ▼                         ▼
-             Controller                 Security
-                  │
-                  ▼
-               Service
-             /    │     \
-            /     │      \
-           ▼      ▼       ▼
-      Generator  Cache  Repository
-                        │
-                        ▼
-                   PostgreSQL
-                        │
-               ┌────────┴────────┐
-               │                 │
-               ▼                 ▼
-          URL Storage        Analytics
+This is a historical checkpoint, not a guarantee that every current
+checkout will produce the same result. Use the latest test output as the
+source of truth.
 
-Potential future infrastructure:
+### Test isolation note
 
-                    ┌──────────────┐
-                    │   Clients    │
-                    └──────┬───────┘
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │ Load Balancer│
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-          API Instance  API Instance  API Instance
-              │            │            │
-              └────────────┼────────────┘
-                           │
-                    ┌──────┴──────┐
-                    │    Redis    │
-                    └──────┬──────┘
-                           │
-                    ┌──────┴──────┐
-                    │ PostgreSQL  │
-                    └─────────────┘
-🧠 Engineering Principles
+Repository tests previously encountered duplicate-email collisions
+because multiple tests used the same fixed email. UUID-based test emails
+were introduced to avoid collisions.
 
-This project focuses on practicing backend engineering concepts that extend beyond simply making an API work.
+Use a **dedicated test database** for integration and repository tests.
+Avoid repository-wide `deleteAll()` cleanup against a development
+database containing personal or real project data. Tests should clean up
+only records they created, or use an isolated disposable test database.
 
-Separation of Concerns
+------------------------------------------------------------------------
 
-Each layer has a clearly defined responsibility.
+## Roadmap
 
-Dependency Injection
+### Phase 1 --- Core URL Shortening
 
-Dependencies are provided through constructors rather than created directly inside classes.
+-   [x] URL-to-short-code flow
+-   [x] Base62 code generation
+-   [x] Redirect behavior
 
-Interface-Based Design
+### Phase 2 --- Spring Boot API
 
-Business components are designed around abstractions where appropriate.
+-   [x] Layered controller/service/repository design
+-   [x] DTOs and request validation
+-   [x] Global exception handling
+-   [x] HTTP response semantics
 
-DTO-Based APIs
+### Phase 3 --- Persistence
 
-Internal entities are separated from external API contracts.
+-   [x] PostgreSQL integration
+-   [x] JPA entities and repositories
+-   [x] URL expiration
 
-Validation
+### Phase 4 --- Analytics
 
-Invalid input is rejected at the API boundary.
+-   [x] Click event persistence
+-   [x] Analytics endpoint
+-   [x] Query/index optimization
 
-Centralized Error Handling
+### Phase 5 --- Authentication and Authorization
 
-Application errors are translated into consistent HTTP responses.
+-   [x] Registration and BCrypt password hashing
+-   [x] Login and JWT access tokens
+-   [x] Refresh-token persistence and rotation
+-   [x] Logout and token revocation
+-   [x] URL ownership enforcement
+-   [x] Security integration tests
 
-Database Constraints
+### Phase 6 --- Test Stabilization
 
-Important invariants are enforced at the database level.
+-   [x] Resolve duplicate test-email collisions
+-   [x] Reach a reported green checkpoint of 64 tests
+-   [ ] Confirm tests use a dedicated test database and isolated cleanup
 
-Automated Testing
+### Phase 7 --- Rate Limiting (current phase)
 
-Changes are verified through unit, MVC, and application-context tests.
+-   [x] Identify target endpoints and abuse scenarios
+-   [x] Compare fixed-window, sliding-window, and token-bucket
+    strategies
+-   [ ] Implement a rate-limiting component
+-   [ ] Integrate limits with URL creation and authentication endpoints
+-   [ ] Return a structured `429 Too Many Requests` response
+-   [ ] Test allowed requests, rejected requests, reset/refill behavior,
+    and concurrency
+-   [ ] Document limitations of in-memory state
 
-Environment-Based Configuration
+### Phase 8 --- Redis Caching and Distributed Limits
 
-Credentials and environment-specific configuration remain outside the source code.
+-   [ ] Cache frequently accessed short-code lookups
+-   [ ] Define cache expiry and invalidation behavior
+-   [ ] Evaluate Redis-backed distributed rate limiting
+-   [ ] Test behavior across multiple application instances
 
-📈 Development Philosophy
+### Phase 9 --- API Documentation and Hardening
 
-The project is intentionally not being built as a single large implementation.
+-   [ ] Add OpenAPI/Swagger
+-   [ ] Review validation, error responses, and API contracts
+-   [ ] Review authentication and token handling
+-   [ ] Review database migrations and indexes
+-   [ ] Add pagination where appropriate
 
-The development approach is:
+### Phase 10 --- Packaging and Deployment
 
-Fundamentals
-     ↓
-Working API
-     ↓
-Clean Architecture
-     ↓
-Automated Tests
-     ↓
-Persistence
-     ↓
-Performance
-     ↓
-Security
-     ↓
-Scalability
-     ↓
-Production Deployment
+-   [ ] Add Dockerfile
+-   [ ] Add Docker Compose for local app/database development
+-   [ ] Configure production profiles and secrets
+-   [ ] Add CI workflow to build and run tests
+-   [ ] Deploy the backend
+-   [ ] Add health checks, structured logging, and monitoring
 
-Each stage introduces a new engineering problem and builds on the previous one.
+### Later Enhancements
 
-📝 Git Development
+-   [ ] Frontend client
+-   [ ] Custom aliases
+-   [ ] User-level usage quotas
+-   [ ] Additional analytics and reporting
+-   [ ] Load and performance testing
 
-The project uses incremental feature-based commits.
+------------------------------------------------------------------------
 
-Example:
+## Engineering Notes
 
-git add .
-git commit -m "feat: persist urls with postgresql"
-git push
+-   **Base62 is encoding, not hashing.** Uniqueness still needs to be
+    enforced by the database and handled by application logic.
+-   **Redirects remain public.** Creating URLs and reading private
+    analytics require authentication according to the current security
+    design.
+-   **Analytics are owner-restricted.** A user should not be able to
+    read another user's URL analytics.
+-   **Refresh tokens are credentials.** Keep them out of logs and source
+    control; store and revoke them securely.
+-   **Rate limiting is not implemented yet.** The next development task
+    is to implement and test it, starting with a simple in-memory
+    algorithm before considering Redis.
+-   **In-memory rate limits are per instance.** They are not suitable
+    for consistent limits across multiple server replicas.
+-   **Schema management needs production review.** `ddl-auto=update` is
+    convenient in development; use controlled database migrations for
+    production.
+-   **Keep commits small.** Commit after a tested milestone, not after
+    every unverified change.
 
-Current checkpoint:
+------------------------------------------------------------------------
 
-feat: complete URL shortener API with tests
+## Git Workflow
 
-Future checkpoints:
+Before a significant change:
 
-feat: persist urls with postgresql
-feat: add url expiration
+``` powershell
+git status
+git add <specific-files>
+git commit -m "feat: describe the completed milestone"
+git push origin main
+```
+
+Before staging everything, inspect `git status` and confirm that no
+secrets, local database dumps, generated files, or environment files are
+included.
+
+Suggested commit examples:
+
+``` text
+feat: add URL expiration
 feat: add click analytics
-feat: add authentication
-feat: add rate limiting
-feat: add redis caching
-feat: dockerize application
-👨‍💻 Author
-Vikrant Sharma
+feat: implement JWT authentication
+test: stabilize repository tests
+feat: add API rate limiting
+docs: document API and deployment
+```
 
-B.Tech — Computer Science & Engineering (Artificial Intelligence)
+------------------------------------------------------------------------
 
-Building backend systems with Java, Spring Boot, PostgreSQL and AI/ML technologies.
+## Current Development Checkpoint
 
-GitHub:
-https://github.com/vikrant16sharma
+**Completed:** URL shortening, persistence, expiration, click analytics,
+JWT authentication, refresh-token rotation, logout, URL ownership
+checks, and test stabilization.
+
+**Working on now:** Phase 8 --- rate limiting. The strategy and endpoint
+scope have been discussed; the implementation and tests are still
+pending.
+
+**Next concrete task:** implement an isolated rate-limiter component,
+write focused unit tests for its algorithm, then integrate it with
+`POST /api/urls` and selected authentication endpoints.
+
+------------------------------------------------------------------------
+
+## License
+
+No license has been selected yet. Add a `LICENSE` file before presenting
+this repository as open source.
